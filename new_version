@@ -1,0 +1,97 @@
+########## This is not completed - am still working on it
+
+
+
+#!/bin/bash
+
+DATE=$(date +%c)
+
+#NAGIOS_STATUS="/var/nagios/status.dat"
+#NAGIOS_STATUS="/usr/local/nagios/var/status.dat"
+NAGIOS_STATUS="/var/cache/nagios3/status.dat"
+WORKING_DIR="/usr/local/bin"
+
+
+SUBJECT="Disabled Nagios notifications on $(hostname -s) *** $DATE"
+from="sender@domain.com"
+SENDMAIL_FOLDER="$WORKING_DIR/sendmail"
+RCPT="reciever@domain.com"
+BODY="$HOST $SERVICE"
+
+userpass="nagiosadmin:password"
+nagios_server="nagios.server.yourdomain.com"
+
+
+function run_awk() { 
+awk -v user=$userpass -v server=$nagios_server 'BEGIN { header=0; FS="="; host_result_n=""; host_result_a=""; notification_result_n=""; notification_result_a=""; active_result_n=""; active_result_a="";} 
+/^[[:space:]]*info {[[:space:]]*$/ { codeblock="info"; } 
+/^[[:space:]]*program {[[:space:]]*$/ { codeblock="program"; } 
+/^[[:space:]]*hoststatus {[[:space:]]*$/ || /^[[:space:]]*host {[[:space:]]*$/  { codeblock="host"; host_name=""; host_notifications=""; host_active=""; } 
+/^[[:space:]]*servicestatus {[[:space:]]*$/ || /^[[:space:]]*service {[[:space:]]*$/ { codeblock="service";  service_description=""; service_notifications=""; service_active="";}
+/^[[:space:]]*host_name=/ { host_name=$2; } 
+/^[[:space:]]*service_description=/ { if (codeblock=="service") { service_description=$2;} } 
+/^[[:space:]]*notifications_enabled=/ { if (codeblock=="service") { service_notifications=$2; } else if (codeblock=="host") { host_notifications=$2; } } 
+/^[[:space:]]*active_checks_enabled=/ { if (codeblock=="service") { service_active=$2; } else if (codeblock=="host") { host_active=$2; } }
+/^[[:space:]]*}[[:space:]]*$/ { 
+  		if (header==0) { 
+				if (codeblock=="host" && host_notifications=="0") { host_result_n=host_result_n"<tr><td colspan=2 bgcolor=red><font color=white><b>The following hosts have notifications disabled:</font></b></td></tr>"; }
+				if (codeblock=="host" && host_active=="0") { host_result_a=host_result_a"<tr><td colspan=2 bgcolor=red><font color=white>The following hosts have Active checks turned off</font></b></td></tr>";  }
+				if (codeblock=="service" && service_active=="0") { service_result_a=service_result_a"<tr><td colspan=2 bgcolor=red><font color=white>The following services have Active checks turned off</font></b></td></tr>";  }
+				if (codeblock=="service" && service_notifications=="0") { service_result_n=service_result_n"<tr><td colspan=2 bgcolor=red><font color=white>The following services have notifications turned off</font></b></td></tr>";  } 
+				header=1;
+			}
+				if (codeblock=="host" && host_notifications=="0") {	
+					host_result_n=host_result_n"<tr><td>"host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=28&cmd_mod=2&host="host_name"&btnSubmit=Commit\">ENABLE NOTIFICATION</a></td></t>"; 
+				}
+				if (codeblock=="host" && host_active=="0") {
+					host_result_a=host_result_a"<tr><td>"host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=47&host="host_name"&btnSubmit=Commit\">ENABLE ACTIVE CHECK</a></td></t>\n";
+				}
+				if (codeblock=="service" && host_notifications=="0") {
+					service_result_n=service_result_n"<tr><td>"service_description " on " host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=22&cmd_mod=2&host="host_name"&service="service_description"&btnSubmit=Commit\">ENABLE SERVICE NOTIFICATION</a></td></tr>";
+				}
+				if (codeblock=="service" && host_active=="0") {
+					service_result_a=_service_result_a"<tr><td>"service_description " on " host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=5&host="host_name"&service="service_description"&btnSubmit=Commit\">ENABLE ACTIVE CHECKS</a></td></tr>";
+				}
+
+		} 
+		END { print "HOST_RESULT_A:"host_result_a"| HOST_RESULT_N:"host_result_n"| SERVICE_RESULT_A:"service_result_a"| SERVICE_RESULT_N:"service_result_n""; }
+	' 
+
+}
+
+
+
+
+
+OIFS=IFS;
+IFS='|'
+for RESULT in $(/bin/cat $NAGIOS_STATUS| run_awk); do
+	if [[ $RESULT =~ HOST_RESULT_N ]]; then
+		HOSTN=$(echo -e $RESULT|grep  "HOST_RESULT_N"|sed -e 's/HOST_RESULT_N://g')
+	fi
+	if [[ $RESULT =~ HOST_RESULT_A ]]; then
+		HOSTA=$(echo -e $RESULT|grep HOST_RESULT_A|sed -e 's/HOST_RESULT_A://g')
+	fi
+	if [[ $RESULT =~ SERVICE_RESULT_A ]]; then
+		SERVICEA=$(echo -e $RESULT|grep SERVICE_RESULT_A|sed -e 's/SERVICE_RESULT_A://g')
+	fi
+	if [[ $RESULT =~ SERVICE_RESULT_N ]]; then
+		SERVICEN=$(echo -e $RESULT|grep SERVICE_RESULT_N|sed -e 's/SERVICE_RESULT_N://g')
+	fi
+done
+IFS=$OLDIFS;
+
+
+if [[ -n $HOSTN || -n $HOSTA || -n $SERVICEA || -n $SERVICEN ]]; then
+ 	#cd $SENDMAIL_FOLDER;./sendmail.pl "$WORKING_DIR" "$from" "$RCPT" "$SUBJECT:" "<table>$SERVICEA<br>$SERVICEN<br>$HOSTN<br>$HOSTA</table>"
+echo "$HOSTA"
+echo "__________________"
+echo $HOSTN
+
+echo "__________________"
+echo $SERVICEN
+echo "__________________"
+else
+	echo "Nothing is disabled..."
+fi 
+
