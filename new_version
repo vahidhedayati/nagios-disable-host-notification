@@ -42,7 +42,7 @@ awk -v user=$userpass -v server=$nagios_server 'BEGIN { header1=0; header2=0; he
 /^[[:space:]]*host_name=/ { host_name=$2; }
 /^[[:space:]]*start_time=/ { if (codeblock=="servicedowntime")   { down_start=$2; dstart=strftime("%d-%m-%y %H-%M-%S",down_start);} }
 /^[[:space:]]*end_time=/ { if (codeblock=="servicedowntime")   { down_end=$2;  dend=strftime("%d-%m-%y %H-%M-%S",down_end);} }
-/^[[:space:]]*duration=/ { if (codeblock=="servicedowntime")   { down_period=$2;  dtime=(downtime / 60); } }
+/^[[:space:]]*duration=/ { if (codeblock=="servicedowntime")   { down_period=$2;  dtime=(down_period / 60); } }
 /^[[:space:]]*comment=/ { if (codeblock=="servicedowntime")   { down_comment=$2; } }
 /^[[:space:]]*service_description=/ { if ( (codeblock=="service") || (codeblock=="servicedowntime"))  { service_description=$2;} }
 /^[[:space:]]*notifications_enabled=/ { if (codeblock=="service") { service_notifications=$2;  } else if (codeblock=="host") { host_notifications=$2;} }
