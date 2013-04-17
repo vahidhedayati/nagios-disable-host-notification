@@ -2,6 +2,15 @@
 ##############################################################################
 # Bash script written by Vahid Hedayati April 2013
 ##############################################################################
+
+################ WHAT WILL THIS SCRIPT DO? ###################################
+# nagios-host-service-dtime-notification-parses.sh will send an email alert if: 
+# 1. HOSTS: With Active or Notifications  disabled
+# 2. HOSTS: that have been scheduled for downtime 
+# 3. SERVICES: With Active or Notifications disabled
+# 4. SERVICES: that have been scheduled for downtime
+###############################################################################
+
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
