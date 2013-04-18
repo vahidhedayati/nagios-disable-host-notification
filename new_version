@@ -40,67 +40,77 @@ RCPT="reciever@domain.com"
 userpass="nagiosadmin:password"
 nagios_server="nagios.server.yourdomain.com"
 
+
+
+
 function run_awk() {
-awk -v user=$userpass -v server=$nagios_server 'BEGIN { header1=0; header2=0; header3=0; header4=0; FS="="; }
+awk -v user=$userpass -v server=$nagios_server 'BEGIN { header1=0; header2=0; header3=0; header4=0; header5=0; header6=0;  FS="="; go=0; sdown=""; hdown=""; hnot=""; snot=""; sact=""; hact="";}
 /^[[:space:]]*info {[[:space:]]*$/ { codeblock="info"; }
 /^[[:space:]]*program {[[:space:]]*$/ { codeblock="program"; }
 /^[[:space:]]*hoststatus {[[:space:]]*$/ || /^[[:space:]]*host {[[:space:]]*$/ { codeblock="host";  host_name=""; host_notifications=""; host_active=""; }
 /^[[:space:]]*servicestatus {[[:space:]]*$/ || /^[[:space:]]*service {[[:space:]]*$/ { codeblock="service";  service_description=""; service_notifications=""; service_active=""; }
-/^[[:space:]]*servicedowntime {[[:space:]]*$/  { codeblock="servicedowntime";  down_start=""; down_end=""; down_comment=""; }
-/^[[:space:]]*hostdowntime {[[:space:]]*$/  { codeblock="hostdowntime";  hdown_start=""; hdown_end=""; hdown_comment=""; }
+/^[[:space:]]*servicedowntime {[[:space:]]*$/  { codeblock="servicedowntime"; down_start=""; down_end=""; down_comment=""; down_id="";}
+/^[[:space:]]*hostdowntime {[[:space:]]*$/  { codeblock="hostdowntime";  down_start=""; down_end=""; down_comment=""; down_id=""; }
+
 /^[[:space:]]*host_name=/ { host_name=$2; }
-/^[[:space:]]*start_time=/ { if (codeblock=="servicedowntime")   { down_start=$2; dstart=strftime("%d-%m-%y %H-%M-%S",down_start);}; if (codeblock=="hostdowntime")   { hdown_start=$2; hdstart=strftime("%d-%m-%y %H-%M-%S",hdown_start);}; }
-/^[[:space:]]*end_time=/ { if (codeblock=="servicedowntime")   { down_end=$2;  dend=strftime("%d-%m-%y %H-%M-%S",down_end);}; if (codeblock=="hostdowntime")   { hdown_end=$2;  hdend=strftime("%d-%m-%y %H-%M-%S",hdown_end);};  }
-/^[[:space:]]*duration=/ { if (codeblock=="servicedowntime")   { down_period=$2;  dtime=(down_period / 60); };   if (codeblock=="hostdowntime")   { hdown_period=$2;  hdtime=(hdown_period / 60); };}
-/^[[:space:]]*comment=/ { if (codeblock=="servicedowntime")   { down_comment=$2; };  if (codeblock=="hostdowntime")   { hdown_comment=$2; } }
+/^[[:space:]]*start_time=/ { if ((codeblock=="servicedowntime")||(codeblock="hostdowntime")){ down_start=$2; dstart=strftime("%d-%m-%y %H-%M-%S",down_start);};  }
+/^[[:space:]]*end_time=/ { if ((codeblock=="servicedowntime")||(codeblock="hostdowntime")){ down_end=$2;  dend=strftime("%d-%m-%y %H-%M-%S",down_end);}; }
+/^[[:space:]]*duration=/ { if ((codeblock=="servicedowntime")||(codeblock="hostdowntime")){ down_period=$2;  dtime=(down_period / 60); }; }
+/^[[:space:]]*downtime_id=/ { if ((codeblock=="servicedowntime")||(codeblock="hostdowntime")){down_id=$2; }; }
+
+/^[[:space:]]*comment=/ { if ((codeblock=="servicedowntime")||(codeblock="hostdowntime")){ down_comment=$2; };}
 /^[[:space:]]*service_description=/ { if ( (codeblock=="service") || (codeblock=="servicedowntime"))  { service_description=$2;} }
 /^[[:space:]]*notifications_enabled=/ { if (codeblock=="service") { service_notifications=$2;  } else if (codeblock=="host") { host_notifications=$2;} }
 /^[[:space:]]*active_checks_enabled=/ { if (codeblock=="service") { service_active=$2;} else if (codeblock=="host") { host_active=$2;  } }
 /^[[:space:]]*}[[:space:]]*$/ {
-	if (codeblock=="host") { 
+
+	  if ( (codeblock=="host") && (host_notifications=="0")) {
 		if (header1==0) {
-			print "<tr><td colspan=2 bgcolor=green><b><font color=white><b>The following hosts have Notifications/Active Checks disabled:</font></b></td></tr>";
+			hnot=hnot"<tr><td colspan=4 bgcolor=#3300CC><b><font color=white><b>HOSTS WITH DISABLED NOTIFICATIONS:</font></b></td></tr>";
 			header1=1;
 		}
-  		if (host_notifications=="0") { 
-			print "<tr bgcolor=#CCCCCC><td>"host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=28&cmd_mod=2&host="host_name"&btnSubmit=Commit\">ENABLE NOTIFICATION on "host_name"</a></td></t>";
-  		}
-  		if (host_active=="0") { 
-			print "<tr><td>"host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=47&host="host_name"&btnSubmit=Commit\">ENABLE ACTIVE CHECK on "host_name"</a></td></t>\n";
-		}
+		hnot=hnot"<tr bgcolor=#CCCCCC><td>"host_name"</td><td colspan=3><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=28&cmd_mod=2&host="host_name"&btnSubmit=Commit\">ENABLE NOTIFICATION on "host_name"</a></td></t>";
 	}
-	if (codeblock=="hostdowntime") { 
+	 if ( (codeblock=="host") &&  (host_active=="0")) { 
 		if (header2==0) {
-			print "<tr><td colspan=2 bgcolor=green><b><font color=white><b>The following HOSTS have been scheduled for downtime:</font></b></td></tr>";
+			hact=hact"<tr><td colspan=4 bgcolor=#3300CC><b><font color=white><b>HOSTS WITH DISABLED ACTIVE CHECKS:</font></b></td></tr>";
 			header2=1;
 		}
-		print "<tr bgcolor=#CCFFCC><td>"host_name"</td><td>"hdstart " to " hdend" [ ("hdtime") minutes ] by:" hdown_comment"</td></tr>";
+		hact=hact"<tr><td>"host_name"</td><td colspan=3><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=47&host="host_name"&btnSubmit=Commit\">ENABLE ACTIVE CHECK on "host_name"</a></td></tr>\n";
 	}
-
-	if (codeblock=="servicedowntime") { 
+	
+	if ((codeblock=="service") && (service_active=="0"))  { 
 		if (header3==0) {
-			print "<tr><td colspan=2 bgcolor=green><b><font color=white><b>The following SERVICES have been scheduled for downtime:</font></b></td></tr>";
+			sact=sact"<tr><td colspan=4 bgcolor=red><b><font color=white>SERVICES WITH DISABLED ACTIVE CHECKS</font></b></td></tr>";
 			header3=1;
 		}
-		print "<tr bgcolor=#CCFFCC><td>"host_name"</td><td>"service_description": "dstart " to " dend" [ ("dtime") minutes ] by:" down_comment"</td></tr>";
+		sact=sact"<tr><td>"service_description"</td><td>"host_name"</td><td colspan=2><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=5&host="host_name"&service="service_description"&btnSubmit=Commit\">ENABLE ACTIVE CHECKS</a></td></tr>";
 	}
-	if (codeblock=="service") { 
+
+	if ((codeblock=="service") && (service_notifications=="0"))  { 
 		if (header4==0) {
-			print "<tr><td colspan=2 bgcolor=red><b><font color=white>The following services have Notifications/Active checks turned off</font></b></td></tr>";
+			snot=snot"<tr><td colspan=4 bgcolor=red><b><font color=white>SERVICES WITH DISABLED NOTIFICATIONS:</font></b></td></tr>";
 			header4=1;
 		}
-  		if (service_active=="0") { 
-			print "<tr><td>"service_description " on " host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=5&host="host_name"&service="service_description"&btnSubmit=Commit\">ENABLE ACTIVE CHECKS</a></td></tr>";
-		}
-		if (service_notifications=="0") {
-			print "<tr bgcolor=#CCCCCC><td>"service_description " on " host_name"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=22&cmd_mod=2&host="host_name"&service="service_description"&btnSubmit=Commit\">ENABLE SERVICE NOTIFICATION</a>
-/td></tr>";
-		}
+		snot=snot"<tr bgcolor=#CCCCCC><td>"service_description"</td><td>"host_name"</td><td colspan=2><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=22&cmd_mod=2&host="host_name"&service="service_description"&btnSubmit=Commit\">ENABLE SERVICE NOTIFICATION</a></td></tr>";
 	}
-   }'
+	if (codeblock=="servicedowntime")  { 
+		if (header5==0) {
+			sdown=sdown"<tr><td colspan=4 bgcolor=#6600CC><b><font color=white><b>The following SERVICES have been scheduled for downtime:</font></b></td></tr>";
+			header5=1;
+		}
+		sdown=sdown"<tr bgcolor=#66FF66><td>"host_name"</td><td>"service_description"</td><td>"dstart " to " dend" [ ("dtime") minutes ] by:" down_comment"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=79&down_id="down_id"\">CANCEL SERVICE DOWNTIME</a></td></tr>";
+	}
+	if (codeblock=="hostdowntime") { 
+		if (header6==0) {
+			hdown=hdown"<tr><td colspan=4 bgcolor=#330000><b><font color=white><b>The following HOSTS have been scheduled for downtime:</font></b></td></tr>";
+			header6=1;
+		}
+		hdown=hdown"<tr bgcolor=#FFFF99><td>"host_name"</td><td colspan=2>"dstart " to " dend" [ ("dtime") minutes ] by:" down_comment"</td><td><a href=\"http://"user"@"server"/nagios/cgi-bin/cmd.cgi?cmd_typ=78&down_id="down_id"\">CANCEL HOST DOWNTIME</a></td></tr>";
+	}
+
+   } END { print hdown""hnot""hact""sdown""snot""sact; }'
 }
-
-
 
 RESULT=$(/bin/cat $NAGIOS_STATUS| run_awk)
 if [[ -n $RESULT ]]; then
