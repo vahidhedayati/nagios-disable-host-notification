@@ -7,7 +7,8 @@ Please refer to http://exchange.nagios.org/directory/Addons/Notifications/*-Noti
 
 
 # WHAT WILL THIS SCRIPT DO? 
-==nagios-host-service-dtime-notification-parses.sh will send an email alert if:
+nagios-disabled.sh will send an email alert if:
+================================
 
 1. HOSTS: With Active or Notifications disabled
 2. HOSTS: that have been scheduled for downtime
